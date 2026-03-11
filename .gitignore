@@ -20,8 +20,3 @@ tmp/
 *.log
 go.work
 go.work.sum
-docs/architecture.md
-docs/cli/clawtool.md
-docs/requirements/clawtool_prd_v1.md
-docs/requirements/README.md
-docs/requirements/traceability.md
