@@ -8,60 +8,40 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/openclaw/clawtool/internal/core"
 	lifecyclelogs "github.com/openclaw/clawtool/internal/logs"
+	"github.com/openclaw/clawtool/internal/platform"
+	platformcommon "github.com/openclaw/clawtool/internal/platform/common"
 	"github.com/openclaw/clawtool/internal/schema"
 	"github.com/openclaw/clawtool/internal/state"
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	workspaceDirName = ".clawtool"
-	profilesDirName  = "profiles"
-)
-
 // Service provides local workspace operations. / Service 提供本地工作区操作。
 type Service struct {
-	RootDir string
+	RootDir  string
+	Platform platform.Adapter
 }
 
 // NewService creates a workspace service. / NewService 创建工作区服务。
 func NewService(rootDir string) Service {
-	return Service{RootDir: rootDir}
+	return Service{
+		RootDir:  rootDir,
+		Platform: platform.Current(),
+	}
 }
 
 // Detect collects local environment facts. / Detect 收集本地环境事实。
 func (s Service) Detect() (core.DetectResult, error) {
-	workingDir, err := filepath.Abs(s.RootDir)
-	if err != nil {
-		return core.DetectResult{}, err
+	if s.Platform == nil {
+		s.Platform = platform.Current()
 	}
-
-	homeDir, _ := os.UserHomeDir()
-	executablePath, _ := os.Executable()
-	shell := detectShell()
-	openClawPath, _ := exec.LookPath("openclaw")
-
-	return core.DetectResult{
-		OS:                runtime.GOOS,
-		Arch:              runtime.GOARCH,
-		WorkingDir:        workingDir,
-		HomeDir:           homeDir,
-		Shell:             shell,
-		ExecutablePath:    executablePath,
-		OpenClawPath:      openClawPath,
-		OpenClawInstalled: openClawPath != "",
-		WorkspacePath:     s.workspacePath(),
-		ProfilesPath:      s.profilesPath(),
-		StatePath:         state.DefaultStatePath(workingDir),
-	}, nil
+	return s.Platform.Detect(s.RootDir)
 }
 
 // Doctor performs deterministic health checks. / Doctor 执行确定性的健康检查。
@@ -817,11 +797,11 @@ func (s Service) UseProfile(name string) (core.ProfileUseResult, error) {
 }
 
 func (s Service) workspacePath() string {
-	return filepath.Join(s.RootDir, workspaceDirName)
+	return platformcommon.WorkspacePath(s.RootDir)
 }
 
 func (s Service) profilesPath() string {
-	return filepath.Join(s.workspacePath(), profilesDirName)
+	return platformcommon.ProfilesPath(s.RootDir)
 }
 
 func (s Service) ensureDefaultProfile() error {
@@ -1025,15 +1005,6 @@ func (s Service) checkDirectoryWritable(path string, code string, hintKey string
 		MessageKey:         "doctor.finding.directory.writable",
 		RemediationHintKey: "doctor.hint.none",
 	}
-}
-
-func detectShell() string {
-	for _, key := range []string{"SHELL", "COMSPEC"} {
-		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func mustYAML(value any) []byte {

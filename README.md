@@ -4,15 +4,15 @@
 
 ## 中文
 
-`clawtool` 是一个面向 OpenClaw 的 CLI 优先控制平面，目标是标准化安装、配置、验证、诊断、回滚与修复流程。
+`clawtool` 是一个面向 OpenClaw 的 CLI-first 控制平面，用于标准化安装、配置、验证、回滚、日志与修复流程。
 
-当前仓库已经完成 Phase 0，并进入 Phase 1：
+当前进度：
 
-- 已接入 `cobra`、`go-i18n`、`yaml.v3`
-- 已具备多语言 CLI 基础设施
-- 已实现最小可用的 `detect`、`doctor`、`init`、`profile`
-- 已实现基础闭环版本的 `plan`、`apply`、`verify`
-- `plan` 已输出文件级差异动作，`apply` 已具备基础备份与幂等行为
+- 已完成 Phase 0 基础设施
+- 已完成本地生命周期核心链路
+- 已实现 `detect`、`doctor`、`init`、`profile`、`plan`、`show`
+- 已实现 `apply`、`verify`、`inspect`、`status`
+- 已实现 `logs`、`rollback`、`repair`
 
 ### 快速开始
 
@@ -40,6 +40,9 @@ go run ./cmd/clawtool verify --lang zh-CN
 - `clawtool verify`
 - `clawtool inspect`
 - `clawtool status`
+- `clawtool logs`
+- `clawtool rollback`
+- `clawtool repair`
 
 ### 开发命令
 
@@ -48,27 +51,17 @@ make check
 pwsh ./scripts/dev.ps1 check
 ```
 
-### 代理说明
-
-如果需要下载 Go 依赖，当前环境可使用：
-
-- SOCKS5: `127.0.0.1:10808`
-- HTTP/HTTPS: `127.0.0.1:10809`
-
 ## English
 
-`clawtool` is a CLI-first control plane for OpenClaw. It standardizes installation, configuration, verification, diagnostics, rollback, and repair workflows.
+`clawtool` is a CLI-first control plane for OpenClaw. It standardizes installation, configuration, verification, rollback, logging, and repair workflows.
 
-Phase 0 is complete, Phase 1 is in place, and Phase 2 has started:
+Current status:
 
-- `cobra`, `go-i18n`, and `yaml.v3` are wired in
-- Multilingual CLI infrastructure is in place
-- `detect`, `doctor`, `init`, and `profile` are minimally functional
-- `plan`, `apply`, and `verify` now provide a basic local lifecycle loop
-- `plan` now reports file-level and content-level diffs
-- `plan --out` now saves a reusable plan artifact, and `show` can inspect it
-- `inspect` and `status` now provide detailed and compact lifecycle summaries
-- `logs` and `rollback` now provide the first operational completeness features
+- Phase 0 foundation is complete
+- The local lifecycle chain is in place
+- `detect`, `doctor`, `init`, `profile`, `plan`, and `show` are implemented
+- `apply`, `verify`, `inspect`, and `status` are implemented
+- `logs`, `rollback`, and `repair` are implemented
 
 ### Quickstart
 
@@ -91,12 +84,14 @@ go run ./cmd/clawtool verify --lang en
 - `clawtool profile validate`
 - `clawtool profile use`
 - `clawtool plan`
+- `clawtool show`
 - `clawtool apply`
 - `clawtool verify`
 - `clawtool inspect`
 - `clawtool status`
 - `clawtool logs`
 - `clawtool rollback`
+- `clawtool repair`
 
 ### Developer Commands
 
@@ -105,24 +100,17 @@ make check
 pwsh ./scripts/dev.ps1 check
 ```
 
-### Proxy Notes
-
-If Go dependencies need to be downloaded in this environment, the following local proxies are available:
-
-- SOCKS5: `127.0.0.1:10808`
-- HTTP/HTTPS: `127.0.0.1:10809`
-
 ## 日本語
 
-`clawtool` は OpenClaw 向けの CLI ファーストなコントロールプレーンです。インストール、設定、検証、診断、ロールバック、修復のワークフローを標準化します。
+`clawtool` は OpenClaw 向けの CLI-first コントロールプレーンです。インストール、設定、検証、ロールバック、ログ収集、修復フローを標準化します。
 
-現在は Phase 0 を完了し、Phase 1 に入っています。
+現在の進捗:
 
-- `cobra`、`go-i18n`、`yaml.v3` を導入済み
-- 多言語 CLI 基盤を構築済み
-- `detect`、`doctor`、`init`、`profile` は最小実装済み
-- `plan`、`apply`、`verify` も基本的なローカルライフサイクルとして動作
-- `plan` はファイル単位の変更動作を表示し、`apply` は基本的なバックアップと冪等性を備える
+- Phase 0 の基盤は完了
+- ローカルライフサイクルの主要チェーンは実装済み
+- `detect`、`doctor`、`init`、`profile`、`plan`、`show` を実装済み
+- `apply`、`verify`、`inspect`、`status` を実装済み
+- `logs`、`rollback`、`repair` を実装済み
 
 ### クイックスタート
 
@@ -145,8 +133,14 @@ go run ./cmd/clawtool verify --lang ja
 - `clawtool profile validate`
 - `clawtool profile use`
 - `clawtool plan`
+- `clawtool show`
 - `clawtool apply`
 - `clawtool verify`
+- `clawtool inspect`
+- `clawtool status`
+- `clawtool logs`
+- `clawtool rollback`
+- `clawtool repair`
 
 ### 開発コマンド
 
@@ -154,10 +148,3 @@ go run ./cmd/clawtool verify --lang ja
 make check
 pwsh ./scripts/dev.ps1 check
 ```
-
-### プロキシ情報
-
-この環境で Go 依存関係をダウンロードする場合は、以下のローカルプロキシを利用できます。
-
-- SOCKS5: `127.0.0.1:10808`
-- HTTP/HTTPS: `127.0.0.1:10809`
