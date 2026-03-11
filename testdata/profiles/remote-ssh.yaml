@@ -1,0 +1,6 @@
+version: v1
+name: sample-remote
+target:
+  kind: ssh
+  address: ssh.example.internal
+

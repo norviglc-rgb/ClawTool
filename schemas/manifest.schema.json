@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openclaw.dev/schemas/manifest.schema.json",
+  "title": "clawtool manifest",
+  "type": "object",
+  "required": ["version", "profile"],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
+

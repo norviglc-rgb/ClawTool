@@ -1,0 +1,5 @@
+version: v1
+name: default
+target:
+  kind: local
+
