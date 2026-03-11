@@ -19,6 +19,7 @@ const (
 	ErrorCodeLogRead          ErrorCode = "ERR_LOG_READ"
 	ErrorCodeLogWrite         ErrorCode = "ERR_LOG_WRITE"
 	ErrorCodeLogBundle        ErrorCode = "ERR_LOG_BUNDLE"
+	ErrorCodeRemoteExec       ErrorCode = "ERR_REMOTE_EXEC"
 )
 
 // AppError keeps stable codes separate from localized text. / AppError 将稳定错误码与本地化文本分离。

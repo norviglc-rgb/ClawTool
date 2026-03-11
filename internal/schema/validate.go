@@ -45,6 +45,22 @@ func ValidateProfile(data []byte) error {
 				Cause:      fmt.Errorf("ssh target requires address"),
 			}
 		}
+		if profile.Target.Port < 0 || profile.Target.Port > 65535 {
+			return &core.AppError{
+				Code:       core.ErrorCodeSchemaValidation,
+				MessageKey: "error.schema.profile",
+				Cause:      fmt.Errorf("ssh target port must be between 0 and 65535"),
+			}
+		}
+		switch profile.Target.HostKeyStrategy {
+		case "", "known_hosts", "insecure":
+		default:
+			return &core.AppError{
+				Code:       core.ErrorCodeSchemaValidation,
+				MessageKey: "error.schema.profile",
+				Cause:      fmt.Errorf("unsupported host key strategy: %s", profile.Target.HostKeyStrategy),
+			}
+		}
 	default:
 		return &core.AppError{
 			Code:       core.ErrorCodeSchemaValidation,

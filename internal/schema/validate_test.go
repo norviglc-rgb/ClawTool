@@ -33,6 +33,24 @@ func TestValidateProfile(t *testing.T) {
 	}
 }
 
+func TestValidateProfileSSH(t *testing.T) {
+	t.Parallel()
+
+	profile := []byte("version: v1\nname: remote\ntarget:\n  kind: ssh\n  address: ssh.example.internal\n  user: deploy\n  port: 22\n  host_key_strategy: known_hosts\n")
+	if err := ValidateProfile(profile); err != nil {
+		t.Fatalf("validate ssh profile: %v", err)
+	}
+}
+
+func TestValidateProfileRejectsBadHostKeyStrategy(t *testing.T) {
+	t.Parallel()
+
+	profile := []byte("version: v1\nname: remote\ntarget:\n  kind: ssh\n  address: ssh.example.internal\n  host_key_strategy: broken\n")
+	if err := ValidateProfile(profile); err == nil {
+		t.Fatal("expected bad host key strategy to be rejected")
+	}
+}
+
 func TestValidateManifest(t *testing.T) {
 	t.Parallel()
 

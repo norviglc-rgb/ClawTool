@@ -3,4 +3,7 @@ name: sample-remote
 target:
   kind: ssh
   address: ssh.example.internal
-
+  user: deploy
+  port: 22
+  key_path: ~/.ssh/id_ed25519
+  host_key_strategy: known_hosts

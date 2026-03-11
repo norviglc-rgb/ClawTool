@@ -7,6 +7,7 @@ import (
 	"github.com/openclaw/clawtool/internal/app"
 	"github.com/openclaw/clawtool/internal/config"
 	clawi18n "github.com/openclaw/clawtool/internal/i18n"
+	"github.com/openclaw/clawtool/internal/remote"
 	"github.com/openclaw/clawtool/internal/render"
 
 	"github.com/spf13/cobra"
@@ -61,6 +62,7 @@ func NewRootCommand() *cobra.Command {
 				Localize: localize,
 				Renderer: rendererImpl,
 				Service:  app.NewService(workingDir),
+				Remote:   remote.NewService(workingDir),
 			}
 
 			cmd.SetContext(withRuntime(context.Background(), runtime))
@@ -85,6 +87,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(newLogsCommand(defaultText))
 	cmd.AddCommand(newRollbackCommand(defaultText))
 	cmd.AddCommand(newRepairCommand(defaultText))
+	cmd.AddCommand(newRemoteCommand(defaultText))
 
 	return cmd
 }

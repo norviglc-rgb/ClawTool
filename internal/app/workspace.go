@@ -60,11 +60,11 @@ func (s Service) Doctor() (core.DoctorResult, error) {
 		},
 	}
 
-	findings = append(findings, s.checkDirectoryWritable(s.RootDir, "doctor.fs.root_writable", "doctor.hint.root_writable"))
-	findings = append(findings, s.checkDirectoryWritable(s.workspacePath(), "doctor.fs.workspace_writable", "doctor.hint.workspace_init"))
+	findings = append(findings, s.directoryWritableFinding(s.RootDir, "doctor.fs.root_writable", "doctor.hint.root_writable"))
+	findings = append(findings, s.directoryWritableFinding(s.workspacePath(), "doctor.fs.workspace_writable", "doctor.hint.workspace_init"))
 
 	profilesPath := s.profilesPath()
-	if _, err := os.Stat(profilesPath); err == nil {
+	if platformcommon.DirectoryExists(profilesPath) {
 		findings = append(findings, core.DoctorFinding{
 			Code:               "doctor.profiles.directory",
 			Severity:           core.SeverityPass,
@@ -105,12 +105,13 @@ func (s Service) Init() (core.InitResult, error) {
 	}
 
 	for _, path := range paths {
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
+		created, err := platformcommon.EnsureDirectory(path)
+		if err != nil {
+			return core.InitResult{}, err
+		}
+		if !created {
 			result.ExistingPaths = append(result.ExistingPaths, path)
 			continue
-		}
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			return core.InitResult{}, err
 		}
 		result.CreatedPaths = append(result.CreatedPaths, path)
 	}
@@ -135,19 +136,22 @@ func (s Service) Plan() (core.Plan, error) {
 
 	steps := []core.PlanStep{
 		{
-			ID:          "plan.ensure.workspace",
-			Kind:        "filesystem",
-			Description: "Ensure workspace directories exist",
+			ID:         "plan.ensure.workspace",
+			Kind:       "filesystem",
+			MessageKey: "plan.step.ensure_workspace",
 		},
 		{
-			ID:          "plan.render.profile",
-			Kind:        "config",
-			Description: fmt.Sprintf("Render effective configuration for profile %s", profile.Name),
+			ID:         "plan.render.profile",
+			Kind:       "config",
+			MessageKey: "plan.step.render_profile",
+			TemplateData: map[string]string{
+				"Profile": profile.Name,
+			},
 		},
 		{
-			ID:          "plan.persist.state",
-			Kind:        "state",
-			Description: "Persist lifecycle state",
+			ID:         "plan.persist.state",
+			Kind:       "state",
+			MessageKey: "plan.step.persist_state",
 		},
 	}
 
@@ -978,9 +982,8 @@ func (s Service) backupPreviousConfig(currentProfile string) (core.BackupRecord,
 	return core.BackupRecord{}, nil
 }
 
-func (s Service) checkDirectoryWritable(path string, code string, hintKey string) core.DoctorFinding {
-	testPath := filepath.Join(path, ".clawtool-write-check")
-	if err := os.MkdirAll(path, 0o755); err != nil {
+func (s Service) directoryWritableFinding(path string, code string, hintKey string) core.DoctorFinding {
+	if err := platformcommon.DirectoryWritable(path); err != nil {
 		return core.DoctorFinding{
 			Code:               code,
 			Severity:           core.SeverityFail,
@@ -988,16 +991,6 @@ func (s Service) checkDirectoryWritable(path string, code string, hintKey string
 			RemediationHintKey: hintKey,
 		}
 	}
-
-	if err := os.WriteFile(testPath, []byte("ok"), 0o644); err != nil {
-		return core.DoctorFinding{
-			Code:               code,
-			Severity:           core.SeverityFail,
-			MessageKey:         "doctor.finding.directory.not_writable",
-			RemediationHintKey: hintKey,
-		}
-	}
-	_ = os.Remove(testPath)
 
 	return core.DoctorFinding{
 		Code:               code,

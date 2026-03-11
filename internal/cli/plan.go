@@ -40,6 +40,7 @@ func newPlanCommand(localize func(string, map[string]any) string) *cobra.Command
 					{Key: "requires_backup", Value: boolString(plan.RequiresBackup)},
 					{Key: "verification_steps", Value: strings.Join(plan.VerificationSteps, ", ")},
 					{Key: "plan_steps", Value: intString(len(plan.Steps))},
+					{Key: "plan_step_details", Value: formatPlanSteps(runtime.Localize, plan.Steps)},
 					{Key: "changes", Value: formatPlanChanges(plan.Changes)},
 					{Key: "content_diffs", Value: formatContentDiffs(plan.ContentDiffs)},
 				},
@@ -74,6 +75,27 @@ func formatContentDiffs(diffs []core.ContentDiff) string {
 		default:
 			items = append(items, fmt.Sprintf("update:%s=%s->%s", diff.Field, diff.Before, diff.After))
 		}
+	}
+	return strings.Join(items, ", ")
+}
+
+func formatPlanSteps(localize func(string, map[string]any) string, steps []core.PlanStep) string {
+	if len(steps) == 0 {
+		return "-"
+	}
+
+	items := make([]string, 0, len(steps))
+	for _, step := range steps {
+		data := make(map[string]any, len(step.TemplateData))
+		for key, value := range step.TemplateData {
+			data[key] = value
+		}
+
+		text := step.MessageKey
+		if localize != nil {
+			text = localize(step.MessageKey, data)
+		}
+		items = append(items, text)
 	}
 	return strings.Join(items, ", ")
 }

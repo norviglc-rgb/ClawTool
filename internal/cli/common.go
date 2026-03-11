@@ -8,6 +8,7 @@ import (
 	"github.com/openclaw/clawtool/internal/app"
 	"github.com/openclaw/clawtool/internal/config"
 	"github.com/openclaw/clawtool/internal/core"
+	"github.com/openclaw/clawtool/internal/remote"
 	"github.com/openclaw/clawtool/internal/render"
 )
 
@@ -19,6 +20,7 @@ type Runtime struct {
 	Localize func(key string, data map[string]any) string
 	Renderer render.Renderer
 	Service  app.Service
+	Remote   remote.Service
 }
 
 func withRuntime(ctx context.Context, value Runtime) context.Context {
@@ -70,4 +72,12 @@ func verifyResultValue(findings []core.VerifyFinding) string {
 		}
 	}
 	return result
+}
+
+func findingString(localize func(string, map[string]any) string, finding core.VerifyFinding) string {
+	text := finding.MessageKey
+	if localize != nil {
+		text = localize(finding.MessageKey, nil)
+	}
+	return string(finding.Severity) + " " + text
 }

@@ -14,6 +14,7 @@ func newShowCommand(localize func(string, map[string]any) string) *cobra.Command
 		Short: localize("cmd.show.short", nil),
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			runtime := runtimeFromContext(cmd.Context())
 			data, err := os.ReadFile(args[0])
 			if err != nil {
 				return err
@@ -35,6 +36,7 @@ func newShowCommand(localize func(string, map[string]any) string) *cobra.Command
 					{Key: "requires_backup", Value: boolString(plan.RequiresBackup)},
 					{Key: "verification_steps", Value: joinOrDash(plan.VerificationSteps)},
 					{Key: "plan_steps", Value: intString(len(plan.Steps))},
+					{Key: "plan_step_details", Value: formatPlanSteps(runtime.Localize, plan.Steps)},
 					{Key: "changes", Value: formatPlanChanges(plan.Changes)},
 					{Key: "content_diffs", Value: formatContentDiffs(plan.ContentDiffs)},
 				},

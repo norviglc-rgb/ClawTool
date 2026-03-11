@@ -21,6 +21,21 @@
         },
         "address": {
           "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "key_path": {
+          "type": "string"
+        },
+        "host_key_strategy": {
+          "type": "string",
+          "enum": ["known_hosts", "insecure"]
         }
       },
       "additionalProperties": false
@@ -28,4 +43,3 @@
   },
   "additionalProperties": false
 }
-

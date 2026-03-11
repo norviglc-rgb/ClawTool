@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/openclaw/clawtool/internal/core"
 	"github.com/spf13/cobra"
 )
@@ -32,10 +30,7 @@ func newVerifyCommand(localize func(string, map[string]any) string) *cobra.Comma
 
 			details := []core.DetailItem{{Key: "profile", Value: result.Profile}}
 			for _, finding := range result.Findings {
-				details = append(details, core.DetailItem{
-					Key:   "finding",
-					Value: fmt.Sprintf("%s %s", finding.Severity, runtime.Localize(finding.MessageKey, nil)),
-				})
+				details = append(details, core.DetailItem{Key: "finding", Value: findingString(runtime.Localize, finding)})
 			}
 
 			if err := renderResult(cmd.Context(), cmd.OutOrStdout(), core.CommandResult{

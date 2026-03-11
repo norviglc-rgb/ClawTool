@@ -43,8 +43,12 @@ type Profile struct {
 
 // ProfileTarget keeps transport-specific settings grouped. / ProfileTarget 将传输相关设置集中管理。
 type ProfileTarget struct {
-	Kind    string `json:"kind" yaml:"kind"`
-	Address string `json:"address,omitempty" yaml:"address,omitempty"`
+	Kind            string `json:"kind" yaml:"kind"`
+	Address         string `json:"address,omitempty" yaml:"address,omitempty"`
+	User            string `json:"user,omitempty" yaml:"user,omitempty"`
+	Port            int    `json:"port,omitempty" yaml:"port,omitempty"`
+	KeyPath         string `json:"key_path,omitempty" yaml:"key_path,omitempty"`
+	HostKeyStrategy string `json:"host_key_strategy,omitempty" yaml:"host_key_strategy,omitempty"`
 }
 
 // Manifest describes resolved configuration inputs. / Manifest 描述解析后的配置输入。
@@ -69,9 +73,10 @@ type Plan struct {
 
 // PlanStep is an individual planned action. / PlanStep 是单个计划动作。
 type PlanStep struct {
-	ID          string `json:"id"`
-	Kind        string `json:"kind"`
-	Description string `json:"description"`
+	ID           string            `json:"id"`
+	Kind         string            `json:"kind"`
+	MessageKey   string            `json:"message_key"`
+	TemplateData map[string]string `json:"template_data,omitempty"`
 }
 
 // PlanChange describes a deterministic file change. / PlanChange 描述确定性的文件变更。
@@ -212,6 +217,20 @@ type LogsResult struct {
 type RepairResult struct {
 	Actions      []RepairAction `json:"actions"`
 	AppliedCount int            `json:"applied_count"`
+}
+
+// RemoteExecResult captures one remote command execution outcome. / RemoteExecResult 描述一次远程命令执行结果。
+type RemoteExecResult struct {
+	Profile         string        `json:"profile"`
+	Address         string        `json:"address"`
+	User            string        `json:"user"`
+	Port            int           `json:"port"`
+	HostKeyStrategy string        `json:"host_key_strategy"`
+	Command         string        `json:"command"`
+	Stdout          string        `json:"stdout,omitempty"`
+	Stderr          string        `json:"stderr,omitempty"`
+	ExitCode        int           `json:"exit_code"`
+	Duration        time.Duration `json:"duration"`
 }
 
 // DetectResult contains local environment facts. / DetectResult 包含本地环境事实信息。

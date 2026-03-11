@@ -156,4 +156,45 @@
   , { "id": "error.logs.read", "translation": "ライフサイクルログを読み取れません。" }
   , { "id": "error.logs.write", "translation": "ライフサイクルログを書き込めません。" }
   , { "id": "error.logs.bundle", "translation": "ログバンドルを作成できません。" }
+  , { "id": "detail.plan_step_details", "translation": "計画ステップ詳細" }
+  , { "id": "plan.step.ensure_workspace", "translation": "ワークスペースのディレクトリを確実に用意します。" }
+  , { "id": "plan.step.render_profile", "translation": "プロファイル {{.Profile}} の有効設定を生成します。" }
+  , { "id": "plan.step.persist_state", "translation": "ライフサイクル状態を永続化します。" }
+  , { "id": "remote.plan.summary.ready", "translation": "リモート実行計画を生成しました。" }
+  , { "id": "remote.verify.summary.ready", "translation": "リモート検証の事前チェックが完了しました。" }
+  , { "id": "cmd.remote.short", "translation": "リモートのライフサイクル準備コマンドを実行します。" }
+  , { "id": "cmd.remote.plan.short", "translation": "決定的なリモート実行計画を作成します。" }
+  , { "id": "cmd.remote.verify.short", "translation": "決定的なリモート検証の事前チェックを実行します。" }
+  , { "id": "remote.step.validate_profile", "translation": "リモートプロファイル {{.Profile}} を検証します。" }
+  , { "id": "remote.step.prepare_connection", "translation": "{{.Address}} 向けの SSH 接続設定を準備します。" }
+  , { "id": "remote.step.sync_config", "translation": "プロファイル {{.Profile}} のリモート設定同期を計画します。" }
+  , { "id": "remote.step.verify_target", "translation": "リモートターゲット {{.Address}} 向けの検証を計画します。" }
+  , { "id": "remote.verify.finding.profile.valid", "translation": "リモートプロファイルは検証に合格しました。" }
+  , { "id": "remote.verify.finding.target_kind.valid", "translation": "リモートターゲット種別は ssh です。" }
+  , { "id": "remote.verify.finding.target_address.valid", "translation": "リモートターゲットのアドレスは設定されています。" }
+  , { "id": "remote.verify.finding.target_address.missing", "translation": "リモートターゲットのアドレスがありません。" }
+  , { "id": "remote.verify.finding.executor.pending", "translation": "SSH 実行器は未接続のため、ネットワーク実行はまだ未実装です。" }
+  ,
+  { "id": "remote.exec.summary.ready", "translation": "リモートコマンドの実行が完了しました。" },
+  { "id": "cmd.remote.exec.short", "translation": "SSH で 1 つのリモートコマンドを実行します。" },
+  { "id": "flag.profile.user", "translation": "プロファイルの SSH ユーザー。" },
+  { "id": "flag.profile.port", "translation": "プロファイルの SSH ポート。" },
+  { "id": "flag.profile.key_path", "translation": "プロファイルの SSH 秘密鍵パス。" },
+  { "id": "flag.profile.host_key_strategy", "translation": "SSH ホスト鍵検証ポリシー。" },
+  { "id": "detail.target_user", "translation": "対象ユーザー" },
+  { "id": "detail.target_port", "translation": "対象ポート" },
+  { "id": "detail.target_key_path", "translation": "秘密鍵パス" },
+  { "id": "detail.host_key_strategy", "translation": "ホスト鍵ポリシー" },
+  { "id": "detail.command", "translation": "コマンド" },
+  { "id": "detail.exit_code", "translation": "終了コード" },
+  { "id": "detail.stdout", "translation": "標準出力" },
+  { "id": "detail.stderr", "translation": "標準エラー" },
+  { "id": "remote.verify.finding.target_user.valid", "translation": "リモートユーザーが設定されています。" },
+  { "id": "remote.verify.finding.target_user.missing", "translation": "リモートユーザーを解決できません。" },
+  { "id": "remote.verify.finding.key_path.valid", "translation": "秘密鍵パスが設定されています。" },
+  { "id": "remote.verify.finding.key_path.missing", "translation": "秘密鍵パスがありません。" },
+  { "id": "remote.verify.finding.host_key.known_hosts", "translation": "known_hosts 検証を利用できます。" },
+  { "id": "remote.verify.finding.host_key.missing_known_hosts", "translation": "known_hosts ファイルが見つかりません。" },
+  { "id": "remote.verify.finding.host_key.insecure", "translation": "ホスト鍵検証が insecure モードです。" },
+  { "id": "error.remote.exec", "translation": "リモートコマンドを実行できません。" }
 ]
