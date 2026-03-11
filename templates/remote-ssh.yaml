@@ -1,0 +1,6 @@
+version: v1
+name: remote-ssh
+target:
+  kind: ssh
+  address: example-host
+
