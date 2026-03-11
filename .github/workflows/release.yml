@@ -18,7 +18,7 @@ jobs:
       - name: Checksums
         run: sha256sum go.mod > checksums.txt
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-artifacts
           path: |
