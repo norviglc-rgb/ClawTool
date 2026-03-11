@@ -233,6 +233,19 @@ type RemoteExecResult struct {
 	Duration        time.Duration `json:"duration"`
 }
 
+// RemoteApplyResult captures one remote apply execution outcome. / RemoteApplyResult 描述一次远程 apply 执行结果。
+type RemoteApplyResult struct {
+	Plan             Plan         `json:"plan"`
+	AppliedAt        time.Time    `json:"applied_at"`
+	StatePath        string       `json:"state_path"`
+	GeneratedConfig  string       `json:"generated_config"`
+	PlanRecordPath   string       `json:"plan_record_path"`
+	RemoteConfigPath string       `json:"remote_config_path"`
+	BackupPath       string       `json:"backup_path,omitempty"`
+	VerifyResult     VerifyResult `json:"verify_result"`
+	Changed          bool         `json:"changed"`
+}
+
 // DetectResult contains local environment facts. / DetectResult 包含本地环境事实信息。
 type DetectResult struct {
 	OS                string `json:"os"`

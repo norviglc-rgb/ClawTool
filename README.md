@@ -28,6 +28,7 @@
 - `rollback`
 - `repair`
 - `remote plan`
+- `remote apply`
 - `remote verify`
 - `remote exec`
 
@@ -120,6 +121,7 @@ go run ./cmd/clawtool profile create remote-demo `
 
 ```powershell
 go run ./cmd/clawtool remote plan remote-demo
+go run ./cmd/clawtool remote apply remote-demo
 go run ./cmd/clawtool remote verify remote-demo
 ```
 
@@ -132,6 +134,7 @@ go run ./cmd/clawtool remote exec remote-demo uname -a
 说明：
 
 - `remote verify` 只做确定性的本地预检查，不会真的联网修改远程主机
+- `remote apply` 会把当前 profile 渲染成远程配置，先备份旧配置，再写到远程主机
 - `remote exec` 会真的发起 SSH 连接
 - 如果远程命令返回非 0 退出码，`clawtool` 也会返回相同的退出码
 
@@ -186,6 +189,7 @@ Remote SSH flow:
   --host-key-strategy known_hosts
 
 ./clawtool remote plan remote-demo
+./clawtool remote apply remote-demo
 ./clawtool remote verify remote-demo
 ./clawtool remote exec remote-demo uname -a
 ```
@@ -222,5 +226,6 @@ SSH profile とリモート実行:
   --host-key-strategy known_hosts
 
 ./clawtool remote verify remote-demo
+./clawtool remote apply remote-demo
 ./clawtool remote exec remote-demo uname -a
 ```

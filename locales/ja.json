@@ -197,4 +197,12 @@
   { "id": "remote.verify.finding.host_key.missing_known_hosts", "translation": "known_hosts ファイルが見つかりません。" },
   { "id": "remote.verify.finding.host_key.insecure", "translation": "ホスト鍵検証が insecure モードです。" },
   { "id": "error.remote.exec", "translation": "リモートコマンドを実行できません。" }
+  ,
+  { "id": "remote.apply.summary.ready", "translation": "リモート実行プランの適用が完了しました。" },
+  { "id": "cmd.remote.apply.short", "translation": "決定的なリモート実行プランを適用します。" },
+  { "id": "detail.remote_config_path", "translation": "リモート設定パス" },
+  { "id": "remote.verify.finding.remote_config.present", "translation": "リモート設定ファイルがあります。" },
+  { "id": "remote.verify.finding.remote_config.missing", "translation": "リモート設定ファイルがありません。" },
+  { "id": "remote.verify.finding.openclaw.available", "translation": "リモートの OpenClaw 実行ファイルを利用できます。" },
+  { "id": "remote.verify.finding.openclaw.missing", "translation": "リモートの OpenClaw 実行ファイルが見つかりません。" }
 ]

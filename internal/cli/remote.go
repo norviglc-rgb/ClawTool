@@ -14,6 +14,7 @@ func newRemoteCommand(localize func(string, map[string]any) string) *cobra.Comma
 	}
 
 	command.AddCommand(newRemotePlanCommand(localize))
+	command.AddCommand(newRemoteApplyCommand(localize))
 	command.AddCommand(newRemoteVerifyCommand(localize))
 	command.AddCommand(newRemoteExecCommand(localize))
 	return command
@@ -80,6 +81,51 @@ func newRemoteVerifyCommand(localize func(string, map[string]any) string) *cobra
 				Status:     status,
 				SummaryKey: "remote.verify.summary.ready",
 				Details:    details,
+			}
+			if err := renderResult(cmd.Context(), cmd.OutOrStdout(), commandResult); err != nil {
+				return err
+			}
+			if status == core.ResultStatusError {
+				return &core.ExitError{Code: 1, Silent: true}
+			}
+			return nil
+		},
+	}
+}
+
+func newRemoteApplyCommand(localize func(string, map[string]any) string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "apply <profile>",
+		Short: localize("cmd.remote.apply.short", nil),
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			runtime := runtimeFromContext(cmd.Context())
+			profile, _, err := runtime.Remote.LoadProfile(args[0])
+			if err != nil {
+				return err
+			}
+
+			result, err := runtime.Remote.Apply(cmd.Context(), profile)
+			if err != nil {
+				return err
+			}
+
+			status := applyCommandStatus(result.VerifyResult.Findings)
+			commandResult := core.CommandResult{
+				Command:    "remote apply",
+				Status:     status,
+				SummaryKey: "remote.apply.summary.ready",
+				Details: []core.DetailItem{
+					{Key: "profile", Value: result.Plan.Profile},
+					{Key: "target_address", Value: profile.Target.Address},
+					{Key: "remote_config_path", Value: result.RemoteConfigPath},
+					{Key: "generated_config", Value: result.GeneratedConfig},
+					{Key: "plan_record_path", Value: result.PlanRecordPath},
+					{Key: "state_path", Value: result.StatePath},
+					{Key: "changed", Value: boolString(result.Changed)},
+					{Key: "backup_path", Value: blankAsDash(result.BackupPath)},
+					{Key: "verify_result", Value: verifyResultValue(result.VerifyResult.Findings)},
+				},
 			}
 			if err := renderResult(cmd.Context(), cmd.OutOrStdout(), commandResult); err != nil {
 				return err

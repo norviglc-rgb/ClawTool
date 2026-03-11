@@ -21,6 +21,7 @@ import (
 // Executor runs one command on a resolved remote target. / Executor 在解析后的远程目标上执行一条命令。
 type Executor interface {
 	Execute(ctx context.Context, options ConnectionOptions, command string) (ExecOutput, error)
+	WriteFile(ctx context.Context, options ConnectionOptions, path string, data []byte, mode string) error
 }
 
 // ConnectionOptions stores resolved SSH connection settings. / ConnectionOptions 保存解析后的 SSH 连接设置。
@@ -148,6 +149,123 @@ func (SSHExecutor) Execute(ctx context.Context, options ConnectionOptions, comma
 		MessageKey: "error.remote.exec",
 		Cause:      runErr,
 	}
+}
+
+// WriteFile writes a remote file over SSH without shelling out locally. / WriteFile 通过 SSH 写入远程文件，不在本地拼接 shell。
+func (SSHExecutor) WriteFile(ctx context.Context, options ConnectionOptions, path string, data []byte, mode string) error {
+	signer, err := loadPrivateKey(options.KeyPath)
+	if err != nil {
+		return err
+	}
+
+	callback, err := hostKeyCallback(options)
+	if err != nil {
+		return err
+	}
+
+	config := &ssh.ClientConfig{
+		User:            options.User,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: callback,
+		Timeout:         10 * time.Second,
+	}
+
+	address := net.JoinHostPort(options.Host, strconv.Itoa(options.Port))
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+
+	clientConn, chans, reqs, err := ssh.NewClientConn(conn, address, config)
+	if err != nil {
+		_ = conn.Close()
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+	client := ssh.NewClient(clientConn, chans, reqs)
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+	defer session.Close()
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = client.Close()
+		case <-done:
+		}
+	}()
+
+	targetDir := filepath.Dir(path)
+	quotedDir := shellQuote(targetDir)
+	quotedPath := shellQuote(path)
+	chmodMode := strings.TrimSpace(mode)
+	if chmodMode == "" {
+		chmodMode = "0644"
+	}
+
+	command := "sh -lc " + shellQuote("mkdir -p "+quotedDir+" && cat > "+quotedPath+" && chmod "+chmodMode+" "+quotedPath)
+	if err := session.Start(command); err != nil {
+		close(done)
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+
+	if _, err := stdin.Write(data); err != nil {
+		_ = stdin.Close()
+		close(done)
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+	if err := stdin.Close(); err != nil {
+		close(done)
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+	if err := session.Wait(); err != nil {
+		close(done)
+		return &core.AppError{
+			Code:       core.ErrorCodeRemoteExec,
+			MessageKey: "error.remote.exec",
+			Cause:      err,
+		}
+	}
+	close(done)
+	return nil
 }
 
 func loadPrivateKey(path string) (ssh.Signer, error) {
@@ -301,4 +419,8 @@ func defaultKnownHostsPath() string {
 		return ""
 	}
 	return filepath.Join(home, ".ssh", "known_hosts")
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
 }

@@ -1,7 +1,9 @@
 package remote
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +12,7 @@ import (
 	"github.com/openclaw/clawtool/internal/core"
 )
 
-func TestLoadProfilePlanVerifyAndExec(t *testing.T) {
+func TestLoadProfilePlanVerifyExecAndApply(t *testing.T) {
 	t.Parallel()
 
 	rootDir := t.TempDir()
@@ -24,13 +26,16 @@ func TestLoadProfilePlanVerifyAndExec(t *testing.T) {
 		t.Fatalf("write profile: %v", err)
 	}
 
-	service := NewServiceWithExecutor(rootDir, fakeExecutor{
-		output: ExecOutput{
-			Stdout:   "hello",
-			ExitCode: 0,
-			Duration: 150 * time.Millisecond,
+	executor := &fakeExecutor{
+		executeResults: []ExecOutput{
+			{Stdout: "hello", ExitCode: 0, Duration: 150 * time.Millisecond},
+			{ExitCode: 0},
+			{ExitCode: 0},
+			{ExitCode: 0},
+			{ExitCode: 0},
 		},
-	})
+	}
+	service := NewServiceWithExecutor(rootDir, executor)
 
 	profile, path, err := service.LoadProfile("remote")
 	if err != nil {
@@ -66,6 +71,22 @@ func TestLoadProfilePlanVerifyAndExec(t *testing.T) {
 	if execResult.Stdout != "hello" || execResult.ExitCode != 0 {
 		t.Fatalf("unexpected exec output: %+v", execResult)
 	}
+
+	applyResult, err := service.Apply(context.Background(), profile)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if applyResult.RemoteConfigPath != "/etc/openclaw/config.yaml" {
+		t.Fatalf("unexpected remote config path: %+v", applyResult)
+	}
+	if len(executor.writeRequests) != 1 {
+		t.Fatalf("expected one remote write, got %d", len(executor.writeRequests))
+	}
+	if !bytes.Contains(executor.writeRequests[0].data, []byte("name: remote")) {
+		t.Fatalf("unexpected remote write payload: %s", string(executor.writeRequests[0].data))
+	}
+	assertRemoteFinding(t, applyResult.VerifyResult.Findings, "remote.verify.remote_config", core.SeverityPass)
+	assertRemoteFinding(t, applyResult.VerifyResult.Findings, "remote.verify.openclaw", core.SeverityPass)
 }
 
 func TestLoadProfileRejectsNonSSHProfile(t *testing.T) {
@@ -89,12 +110,40 @@ func TestLoadProfileRejectsNonSSHProfile(t *testing.T) {
 }
 
 type fakeExecutor struct {
-	output ExecOutput
-	err    error
+	executeResults []ExecOutput
+	executeErr     error
+	writeErr       error
+	writeRequests  []fakeWriteRequest
 }
 
-func (f fakeExecutor) Execute(_ context.Context, _ ConnectionOptions, _ string) (ExecOutput, error) {
-	return f.output, f.err
+func (f *fakeExecutor) Execute(_ context.Context, _ ConnectionOptions, _ string) (ExecOutput, error) {
+	if f.executeErr != nil {
+		return ExecOutput{}, f.executeErr
+	}
+	if len(f.executeResults) == 0 {
+		return ExecOutput{}, errors.New("unexpected execute call")
+	}
+	result := f.executeResults[0]
+	f.executeResults = f.executeResults[1:]
+	return result, nil
+}
+
+func (f *fakeExecutor) WriteFile(_ context.Context, _ ConnectionOptions, path string, data []byte, mode string) error {
+	if f.writeErr != nil {
+		return f.writeErr
+	}
+	f.writeRequests = append(f.writeRequests, fakeWriteRequest{
+		path: path,
+		data: append([]byte(nil), data...),
+		mode: mode,
+	})
+	return nil
+}
+
+type fakeWriteRequest struct {
+	path string
+	data []byte
+	mode string
 }
 
 func assertRemoteFinding(t *testing.T, findings []core.VerifyFinding, code string, severity core.Severity) {

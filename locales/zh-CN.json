@@ -197,4 +197,12 @@
   { "id": "remote.verify.finding.host_key.missing_known_hosts", "translation": "known_hosts 文件缺失。" },
   { "id": "remote.verify.finding.host_key.insecure", "translation": "主机密钥校验使用不安全模式。" },
   { "id": "error.remote.exec", "translation": "无法执行远程命令。" }
+  ,
+  { "id": "remote.apply.summary.ready", "translation": "远程执行计划已应用。" },
+  { "id": "cmd.remote.apply.short", "translation": "应用确定性的远程执行计划。" },
+  { "id": "detail.remote_config_path", "translation": "远程配置路径" },
+  { "id": "remote.verify.finding.remote_config.present", "translation": "远程配置文件存在。" },
+  { "id": "remote.verify.finding.remote_config.missing", "translation": "远程配置文件不存在。" },
+  { "id": "remote.verify.finding.openclaw.available", "translation": "远程 OpenClaw 可执行文件可用。" },
+  { "id": "remote.verify.finding.openclaw.missing", "translation": "远程 OpenClaw 可执行文件不存在。" }
 ]

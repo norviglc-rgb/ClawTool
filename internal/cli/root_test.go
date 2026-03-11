@@ -217,12 +217,16 @@ func TestRemotePlanAndVerifySmoke(t *testing.T) {
 			return "Run remote lifecycle preparation commands."
 		case "cmd.remote.plan.short":
 			return "Create a deterministic remote execution plan."
+		case "cmd.remote.apply.short":
+			return "Apply a deterministic remote execution plan."
 		case "cmd.remote.verify.short":
 			return "Run deterministic remote verification preflight."
 		case "cmd.remote.exec.short":
 			return "Run one remote command through SSH."
 		case "remote.plan.summary.ready":
 			return "Remote execution plan generated successfully."
+		case "remote.apply.summary.ready":
+			return "Remote execution plan applied successfully."
 		case "remote.verify.summary.ready":
 			return "Remote verification preflight completed."
 		case "remote.exec.summary.ready":
@@ -249,6 +253,18 @@ func TestRemotePlanAndVerifySmoke(t *testing.T) {
 			return "Plan Step Details"
 		case "detail.changes":
 			return "Changes"
+		case "detail.remote_config_path":
+			return "Remote Config Path"
+		case "detail.plan_record_path":
+			return "Plan Record Path"
+		case "detail.state_path":
+			return "State Path"
+		case "detail.changed":
+			return "Changed"
+		case "detail.backup_path":
+			return "Backup Path"
+		case "detail.verify_result":
+			return "Verify Result"
 		case "detail.command":
 			return "Command"
 		case "detail.exit_code":
@@ -277,13 +293,23 @@ func TestRemotePlanAndVerifySmoke(t *testing.T) {
 			return "Remote private key path is configured."
 		case "remote.verify.finding.host_key.insecure":
 			return "Remote host key verification uses insecure mode."
+		case "remote.verify.finding.remote_config.present":
+			return "Remote config file exists."
+		case "remote.verify.finding.openclaw.available":
+			return "Remote OpenClaw executable is available."
 		default:
 			return key
 		}
 	}
 
-	remoteService := remote.NewServiceWithExecutor(tempDir, fakeRemoteExecutor{
-		output: remote.ExecOutput{Stdout: "hello", ExitCode: 0},
+	remoteService := remote.NewServiceWithExecutor(tempDir, &fakeRemoteExecutor{
+		executeResults: []remote.ExecOutput{
+			{ExitCode: 0},
+			{ExitCode: 0},
+			{ExitCode: 0},
+			{ExitCode: 0},
+			{Stdout: "hello", ExitCode: 0},
+		},
 	})
 
 	planCmd := newRemoteCommand(localize)
@@ -306,6 +332,28 @@ func TestRemotePlanAndVerifySmoke(t *testing.T) {
 	}
 	if !strings.Contains(planOutput, "ssh.example.internal") {
 		t.Fatalf("missing remote target address:\n%s", planOutput)
+	}
+
+	applyCmd := newRemoteCommand(localize)
+	applyBuffer := &bytes.Buffer{}
+	applyCmd.SetOut(applyBuffer)
+	applyCmd.SetErr(applyBuffer)
+	applyCmd.SetContext(withRuntime(context.Background(), Runtime{
+		Localize: localize,
+		Renderer: render.HumanRenderer{Localize: localize},
+		Service:  service,
+		Remote:   remoteService,
+	}))
+	applyCmd.SetArgs([]string{"apply", "remote"})
+	if err := applyCmd.Execute(); err != nil {
+		t.Fatalf("remote apply execute: %v", err)
+	}
+	applyOutput := strings.ReplaceAll(applyBuffer.String(), "\r\n", "\n")
+	if !strings.Contains(applyOutput, "Remote execution plan applied successfully.") {
+		t.Fatalf("missing remote apply summary:\n%s", applyOutput)
+	}
+	if !strings.Contains(applyOutput, "/etc/openclaw/config.yaml") {
+		t.Fatalf("missing remote config path:\n%s", applyOutput)
 	}
 
 	verifyCmd := newRemoteCommand(localize)
@@ -351,10 +399,22 @@ func TestRemotePlanAndVerifySmoke(t *testing.T) {
 }
 
 type fakeRemoteExecutor struct {
-	output remote.ExecOutput
-	err    error
+	executeResults []remote.ExecOutput
+	err            error
 }
 
-func (f fakeRemoteExecutor) Execute(context.Context, remote.ConnectionOptions, string) (remote.ExecOutput, error) {
-	return f.output, f.err
+func (f *fakeRemoteExecutor) Execute(context.Context, remote.ConnectionOptions, string) (remote.ExecOutput, error) {
+	if f.err != nil {
+		return remote.ExecOutput{}, f.err
+	}
+	if len(f.executeResults) == 0 {
+		return remote.ExecOutput{}, nil
+	}
+	result := f.executeResults[0]
+	f.executeResults = f.executeResults[1:]
+	return result, nil
+}
+
+func (f *fakeRemoteExecutor) WriteFile(context.Context, remote.ConnectionOptions, string, []byte, string) error {
+	return f.err
 }

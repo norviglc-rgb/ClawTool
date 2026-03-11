@@ -2,14 +2,19 @@ package remote
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/openclaw/clawtool/internal/core"
+	lifecyclelogs "github.com/openclaw/clawtool/internal/logs"
+	platformcommon "github.com/openclaw/clawtool/internal/platform/common"
 	"github.com/openclaw/clawtool/internal/schema"
+	"github.com/openclaw/clawtool/internal/state"
 	"gopkg.in/yaml.v3"
 )
 
@@ -234,4 +239,245 @@ func (s Service) Exec(ctx context.Context, profile core.Profile, command string)
 		ExitCode:        output.ExitCode,
 		Duration:        output.Duration,
 	}, nil
+}
+
+// Apply executes a minimal remote lifecycle on the SSH target. / Apply 在 SSH 目标上执行最小远程生命周期。
+func (s Service) Apply(ctx context.Context, profile core.Profile) (core.RemoteApplyResult, error) {
+	if err := s.ensureWorkspace(); err != nil {
+		return core.RemoteApplyResult{}, err
+	}
+
+	precheck := s.Verify(profile)
+	if hasRemoteFailure(precheck.Findings) {
+		_ = s.recordApplyState(profile.Name, "fail", core.BackupRecord{})
+		_ = s.logLifecycle("remote apply", "remote.apply.precheck", "fail", string(core.ErrorCodeApplyPrecheck), profile.Name)
+		return core.RemoteApplyResult{}, &core.AppError{
+			Code:       core.ErrorCodeApplyPrecheck,
+			MessageKey: "error.apply.precheck",
+			Cause:      fmt.Errorf("remote pre-check reported failing findings"),
+		}
+	}
+
+	plan := s.Plan(profile)
+	plan.PlanRecordPath = s.remotePlanRecordPath(profile.Name)
+	plan.GeneratedConfig = s.effectiveConfigPath(profile.Name)
+
+	configData, err := yaml.Marshal(profile)
+	if err != nil {
+		return core.RemoteApplyResult{}, err
+	}
+
+	changed := true
+	if existing, err := os.ReadFile(plan.GeneratedConfig); err == nil && string(existing) == string(configData) {
+		changed = false
+	}
+	if err := os.WriteFile(plan.GeneratedConfig, configData, 0o644); err != nil {
+		return core.RemoteApplyResult{}, err
+	}
+
+	planData, err := json.MarshalIndent(plan, "", "  ")
+	if err != nil {
+		return core.RemoteApplyResult{}, err
+	}
+	if err := os.WriteFile(plan.PlanRecordPath, planData, 0o644); err != nil {
+		return core.RemoteApplyResult{}, err
+	}
+
+	options, err := resolveConnectionOptions(profile)
+	if err != nil {
+		return core.RemoteApplyResult{}, err
+	}
+	if s.Executor == nil {
+		s.Executor = NewSSHExecutor()
+	}
+
+	backupRecord := core.BackupRecord{}
+	remoteConfigPath := "/etc/openclaw/config.yaml"
+	if output, err := s.Executor.Execute(ctx, options, "sh -lc "+shellQuote("test -f "+shellQuote(remoteConfigPath))); err == nil && output.ExitCode == 0 {
+		backupPath := remoteConfigPath + ".bak." + time.Now().UTC().Format("20060102T150405Z")
+		copyCommand := "sh -lc " + shellQuote("cp "+shellQuote(remoteConfigPath)+" "+shellQuote(backupPath))
+		copyResult, execErr := s.Executor.Execute(ctx, options, copyCommand)
+		if execErr != nil {
+			_ = s.recordApplyState(profile.Name, "fail", backupRecord)
+			return core.RemoteApplyResult{}, execErr
+		}
+		if copyResult.ExitCode != 0 {
+			_ = s.recordApplyState(profile.Name, "fail", backupRecord)
+			return core.RemoteApplyResult{}, &core.AppError{
+				Code:       core.ErrorCodeRemoteExec,
+				MessageKey: "error.remote.exec",
+				Cause:      fmt.Errorf("remote backup command failed with exit code %d", copyResult.ExitCode),
+			}
+		}
+		backupRecord = core.BackupRecord{
+			ID:          filepath.Base(backupPath),
+			ProfileName: profile.Name,
+			CreatedAt:   time.Now().UTC(),
+			Path:        "remote:ssh://" + profile.Target.Address + backupPath,
+		}
+	}
+
+	if err := s.Executor.WriteFile(ctx, options, remoteConfigPath, configData, "0644"); err != nil {
+		_ = s.recordApplyState(profile.Name, "fail", backupRecord)
+		_ = s.logLifecycle("remote apply", "remote.apply.write_config", "fail", string(core.ErrorCodeRemoteExec), profile.Name)
+		return core.RemoteApplyResult{}, err
+	}
+
+	verifyResultValue, err := s.verifyRemoteState(ctx, profile, options, remoteConfigPath)
+	if err != nil {
+		_ = s.recordApplyState(profile.Name, "fail", backupRecord)
+		_ = s.logLifecycle("remote apply", "remote.apply.verify", "fail", string(core.ErrorCodeApplyVerify), profile.Name)
+		return core.RemoteApplyResult{}, err
+	}
+
+	applyStatus := remoteApplyStateResult(verifyResultValue.Findings)
+	if err := s.recordApplyState(profile.Name, applyStatus, backupRecord); err != nil {
+		return core.RemoteApplyResult{}, err
+	}
+	if applyStatus == "fail" {
+		_ = s.logLifecycle("remote apply", "remote.apply.verify", "fail", string(core.ErrorCodeApplyVerify), profile.Name)
+		return core.RemoteApplyResult{}, &core.AppError{
+			Code:       core.ErrorCodeApplyVerify,
+			MessageKey: "error.apply.verify",
+			Cause:      fmt.Errorf("remote post-apply verification reported failing findings"),
+		}
+	}
+
+	now := time.Now().UTC()
+	_ = s.logLifecycle("remote apply", "remote.apply.completed", applyStatus, "", profile.Name)
+	return core.RemoteApplyResult{
+		Plan:             plan,
+		AppliedAt:        now,
+		StatePath:        state.DefaultStatePath(s.RootDir),
+		GeneratedConfig:  plan.GeneratedConfig,
+		PlanRecordPath:   plan.PlanRecordPath,
+		RemoteConfigPath: remoteConfigPath,
+		BackupPath:       backupRecord.Path,
+		VerifyResult:     verifyResultValue,
+		Changed:          changed,
+	}, nil
+}
+
+func (s Service) verifyRemoteState(ctx context.Context, profile core.Profile, options ConnectionOptions, remoteConfigPath string) (core.VerifyResult, error) {
+	findings := append([]core.VerifyFinding{}, s.Verify(profile).Findings...)
+
+	configCheck, err := s.Executor.Execute(ctx, options, "sh -lc "+shellQuote("test -s "+shellQuote(remoteConfigPath)))
+	if err != nil {
+		return core.VerifyResult{}, err
+	}
+	if configCheck.ExitCode == 0 {
+		findings = append(findings, core.VerifyFinding{
+			Code:       "remote.verify.remote_config",
+			Severity:   core.SeverityPass,
+			MessageKey: "remote.verify.finding.remote_config.present",
+		})
+	} else {
+		findings = append(findings, core.VerifyFinding{
+			Code:       "remote.verify.remote_config",
+			Severity:   core.SeverityFail,
+			MessageKey: "remote.verify.finding.remote_config.missing",
+		})
+	}
+
+	openclawCheck, err := s.Executor.Execute(ctx, options, "sh -lc "+shellQuote("test -x /usr/local/bin/openclaw || command -v openclaw >/dev/null"))
+	if err != nil {
+		return core.VerifyResult{}, err
+	}
+	if openclawCheck.ExitCode == 0 {
+		findings = append(findings, core.VerifyFinding{
+			Code:       "remote.verify.openclaw",
+			Severity:   core.SeverityPass,
+			MessageKey: "remote.verify.finding.openclaw.available",
+		})
+	} else {
+		findings = append(findings, core.VerifyFinding{
+			Code:       "remote.verify.openclaw",
+			Severity:   core.SeverityFail,
+			MessageKey: "remote.verify.finding.openclaw.missing",
+		})
+	}
+
+	sort.Slice(findings, func(i, j int) bool {
+		return findings[i].Code < findings[j].Code
+	})
+	return core.VerifyResult{
+		Profile:  profile.Name,
+		Findings: findings,
+	}, nil
+}
+
+func (s Service) ensureWorkspace() error {
+	paths := []string{
+		s.workspacePath(),
+		filepath.Join(s.workspacePath(), "cache"),
+		filepath.Join(s.workspacePath(), "state"),
+		filepath.Join(s.workspacePath(), "logs"),
+	}
+	for _, path := range paths {
+		if _, err := platformcommon.EnsureDirectory(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s Service) workspacePath() string {
+	return platformcommon.WorkspacePath(s.RootDir)
+}
+
+func (s Service) effectiveConfigPath(profileName string) string {
+	return filepath.Join(s.workspacePath(), "cache", "effective-"+profileName+".yaml")
+}
+
+func (s Service) remotePlanRecordPath(profileName string) string {
+	return filepath.Join(s.workspacePath(), "state", "remote-last-plan-"+profileName+".json")
+}
+
+func (s Service) logPath() string {
+	return lifecyclelogs.DefaultLogPath(s.RootDir)
+}
+
+func (s Service) logLifecycle(command string, step string, result string, errorCode string, profile string) error {
+	return lifecyclelogs.Append(s.logPath(), core.LifecycleLogEntry{
+		Timestamp: time.Now().UTC(),
+		Command:   command,
+		Step:      step,
+		Result:    result,
+		ErrorCode: errorCode,
+		Profile:   profile,
+	})
+}
+
+func (s Service) recordApplyState(profileName string, result string, backupRecord core.BackupRecord) error {
+	record, err := state.Load(state.DefaultStatePath(s.RootDir))
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	record.Version = "v1"
+	record.CurrentProfile = profileName
+	record.LastApplyAt = &now
+	record.LastApplyResult = result
+	if backupRecord.Path != "" {
+		record.Backups = append(record.Backups, backupRecord)
+	}
+	return state.Save(state.DefaultStatePath(s.RootDir), record)
+}
+
+func hasRemoteFailure(findings []core.VerifyFinding) bool {
+	for _, finding := range findings {
+		if finding.Severity == core.SeverityFail {
+			return true
+		}
+	}
+	return false
+}
+
+func remoteApplyStateResult(findings []core.VerifyFinding) string {
+	for _, finding := range findings {
+		if finding.Severity == core.SeverityFail {
+			return "fail"
+		}
+	}
+	return "success"
 }
